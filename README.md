@@ -8,9 +8,6 @@ I am not at all associated with this paper or its authors, nor am I attempting t
 
 ### Issues
 
-This project was not a total success, with the main issue being that I could not figure out how to simultaniously minimize the pinball losses over all 21 quantiles proposed in the paper rather than just at one. I have not been able tofind a solution though theoretically this can be acheived through the paper's equation 9.
+This project was not a total success, with the main issue being that I could not figure out how to simultaniously minimize the pinball losses over all 21 quantiles proposed in the paper rather than just at one while still using a Keras loss function. I have not been able to find a solution though theoretically this can be acheived through the paper's equation 9.
 
 No farther work is planned for this project.
-
-
-
