@@ -11,3 +11,12 @@ I am not at all associated with this paper or its authors, nor am I attempting t
 This project was not a total success, with the main issue being that I could not figure out how to simultaniously minimize the pinball losses over all 21 quantiles proposed in the paper rather than just at one while still using a Keras loss function. I have not been able to find a solution though theoretically this can be acheived through the paper's equation 9.
 
 No farther work is planned for this project.
+
+### Setup With PipEnv
+
+```bash
+$ git clone https://www.github.com/MasonWilie/PQRFATDSL_Recreation.git
+$ cd PQRFATDSL_Recreation
+$ python -m pipenv install
+$ python -m pipenv shell
+```
