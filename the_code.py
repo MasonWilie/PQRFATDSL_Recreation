@@ -1,21 +1,19 @@
 import os
 import datetime as dt
-import numpy as np
 import random
-import pandas_datareader.data as web
-import matplotlib.pyplot as plt
+
 from arch import arch_model
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas_datareader.data as web
 import tensorflow as tf
-import keras.backend as K
-from keras.models import Sequential
-from keras.layers import LSTM, Dense
+from tensorflow.python import keras
 import tensorflow_probability as tfp
 
 quantile = 0.5
 cwd = os.path.abspath('') + '/'
 random.seed(1)
 tf.random.set_seed(1)
-
 
 def GARCH(y, start, end, split_date):
     """ General Autoregressive Conditional Heteroskedasticity Model 
@@ -66,7 +64,7 @@ def pinball_loss(y_true, y_pred):
     """
     quant = tf.map_fn(fn=htqf_fun, elems=y_pred, dtype=tf.float32)
     err = y_true - quant
-    return K.maximum(0.5 * err, (0.5 - 1) * err)
+    return tf.maximum(0.5 * err, (0.5 - 1) * err)
 
 
 def moment(x, mu, order):
@@ -136,7 +134,7 @@ def partition_data(ts, L, p_train, p_test, p_val):
 
 
 def main():
-    start = dt.datetime(1950, 1, 4)
+    start = dt.datetime(1970, 1, 1)
     end = dt.datetime(2018, 6, 1)
     data = web.get_data_yahoo('^GSPC', start=start, end=end)
     r_t = 100*data['Close'].pct_change().dropna()
@@ -165,9 +163,9 @@ def main():
     x_train, y_train, x_test, y_test, x_val, y_val = partition_data(r_t, L, 0.8, 0.1, 0.1)
 
 
-    model = Sequential()
-    model.add(LSTM(H, input_shape=(1, 4)))
-    model.add(Dense(4, activation='relu'))
+    model = keras.models.Sequential()
+    model.add(keras.layers.LSTM(H, input_shape=(1, 4)))
+    model.add(keras.layers.Dense(4, activation='relu'))
 
     print(model.summary())
 
