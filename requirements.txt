@@ -1,0 +1,6 @@
+numpy
+pandas-datareader
+matplotlib
+arch
+tensorflow
+tensorflow-probability
