@@ -1,6 +1,7 @@
+PyQt6
+arch
+matplotlib
 numpy
 pandas-datareader
-matplotlib
-arch
 tensorflow
 tensorflow-probability
