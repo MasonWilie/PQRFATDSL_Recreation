@@ -12,11 +12,12 @@ This project was not a total success, with the main issue being that I could not
 
 No farther work is planned for this project.
 
-### Setup With PipEnv
+### Setup With venv
 
 ```bash
 $ git clone https://www.github.com/MasonWilie/PQRFATDSL_Recreation.git
 $ cd PQRFATDSL_Recreation
-$ python -m pipenv install
-$ python -m pipenv shell
+$ python -m venv venv
+$ source venv/bin/activate  # On Windows use: venv\Scripts\activate
+$ pip install -r requirements.txt
 ```
