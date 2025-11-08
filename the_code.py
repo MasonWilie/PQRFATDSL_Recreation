@@ -5,9 +5,10 @@ import random
 from arch import arch_model
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas_datareader.data as web
+import pandas as pd
+import yfinance as yf
 import tensorflow as tf
-from tensorflow.python import keras
+from tensorflow import keras
 import tensorflow_probability as tfp
 
 quantile = 0.5
@@ -136,8 +137,12 @@ def partition_data(ts, L, p_train, p_test, p_val):
 def main():
     start = dt.datetime(1970, 1, 1)
     end = dt.datetime(2018, 6, 1)
-    data = web.get_data_yahoo('^GSPC', start=start, end=end)
+    data = yf.download('^GSPC', start=start, end=end)
+    # Flatten column names if multi-index
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
     r_t = 100*data['Close'].pct_change().dropna()
+    r_t = r_t.astype(float)
     plt.title("S&P500 Daily Returns")
     plt.ylabel("Change [%]")
     r_t.plot()
@@ -146,10 +151,12 @@ def main():
     split_date = dt.datetime(2010, 1, 1)
     GARCH(r_t, start, end, split_date)
 
-    # Plotting the acutal variances (assuming mean = 0)
-    actual_variance = r_t[split_date:]
-    actual_variance.values[:] = np.abs(actual_variance.values[:]) - actual_variance.mean()
-    plt.plot(actual_variance)
+    # Plotting the actual variances (assuming mean = 0)
+    actual_variance = r_t[split_date:].copy()
+    mean_val = actual_variance.mean()
+    actual_variance = actual_variance.apply(lambda x: np.abs(x) - mean_val)
+    plt.figure()
+    actual_variance.plot()
     plt.title("Real Variance from " + split_date.strftime("%m/%d/%Y") + " to " + end.strftime("%m/%d/%Y") + " (m/d/y)")
     plt.show()
 
