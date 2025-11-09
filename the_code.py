@@ -11,7 +11,6 @@ import tensorflow as tf
 from tensorflow import keras
 import tensorflow_probability as tfp
 
-quantile = 0.5
 cwd = os.path.abspath('') + '/'
 random.seed(1)
 tf.random.set_seed(1)
@@ -35,37 +34,76 @@ def GARCH(y, start, end, split_date):
     plt.show()
 
 
-def htqf_fun(p):
-    """Uses tensorflow functions to calculate the value at the quantile specified by the global variable 'quantile'
+def htqf_fun(p, tau):
+    """Uses tensorflow functions to calculate the value at the quantile specified by tau
+
+    This implements the HTQF (Heavy-Tailed Quantile Function) from Equation 6 in the paper:
+    Q(τ|µ, σ, u, v) = µ + σ*Z_τ * (exp(u*Z_τ)/A + 1) * (exp(-v*Z_τ)/A + 1)
+    where Z_τ is the τ-quantile of the standard normal distribution.
 
     Arguments:
         p {tensor} -- tensor that holds the mean, standard deviation, u-value (left tail weight), and v-value (right tail weight)
+        tau {float or tensor} -- quantile level (e.g., 0.5 for median)
 
     Returns:
-        tensor -- value at quantile
+        tensor -- value at quantile tau
     """
-    global quantile
-    return p[0] + tf.abs(p[1])*tfp.distributions.Normal(loc=p[0], scale=tf.abs(p[1])).quantile(quantile) *\
-        (tf.math.exp(p[2] * tfp.distributions.Normal(loc=p[0], scale=tf.abs(p[1])).quantile(quantile)) / 4 + 1) *\
-        (tf.math.exp(-p[3] * tfp.distributions.Normal(loc=p[0],
-                                                      scale=tf.abs(p[1])).quantile(quantile))/4 + 1)
+    # Z_tau: τ-quantile of standard normal N(0,1)
+    z_tau = tfp.distributions.Normal(loc=0.0, scale=1.0).quantile(tau)
+
+    # HTQF formula from Equation 6
+    return p[0] + tf.abs(p[1]) * z_tau * \
+        (tf.math.exp(p[2] * z_tau) / 4 + 1) * \
+        (tf.math.exp(-p[3] * z_tau) / 4 + 1)
 
 
 def pinball_loss(y_true, y_pred):
-    """Custom loss function for quantile regression
-        - Ideally the quantiles would change and it would optimize
-            over all instead of just at one quantile.
+    """Custom loss function for quantile regression over multiple quantiles
+
+    This implements Equation 9 from the paper, which minimizes the sum of
+    pinball losses over all K quantiles simultaneously:
+
+    Loss = (1/K) * (1/(T-L)) * Σ_k Σ_t L_τk(r_t, Q(τ_k|µ_t, σ_t, u_t, v_t))
+
+    where L_τ is the pinball loss from Equation 3:
+    L_τ(y, q) = max(τ*(y-q), (τ-1)*(y-q))
 
     Arguments:
-        y_true {tensor} -- True value
-        y_pred {tensor} -- Predicted parameters for the HTQF
+        y_true {tensor} -- True values (batch_size,)
+        y_pred {tensor} -- Predicted HTQF parameters (batch_size, 4)
+                          [mean, std_dev, u-value, v-value]
 
     Returns:
-        tensor -- loss
+        tensor -- average pinball loss across all quantiles
     """
-    quant = tf.map_fn(fn=htqf_fun, elems=y_pred, dtype=tf.float32)
-    err = y_true - quant
-    return tf.maximum(0.5 * err, (0.5 - 1) * err)
+    # Define the 21 quantiles as in the paper
+    K_quantiles = 21
+    quantiles = [i / (K_quantiles + 1) for i in range(1, K_quantiles + 1)]
+
+    total_loss = 0.0
+
+    # Sum pinball losses over all K quantiles (Equation 9)
+    for tau in quantiles:
+        # Compute HTQF at quantile level tau for all samples in batch
+        quant = tf.map_fn(
+            fn=lambda p: htqf_fun(p, tau),
+            elems=y_pred,
+            dtype=tf.float32
+        )
+
+        # Calculate error: y_true - predicted_quantile
+        err = y_true - quant
+
+        # Pinball loss (Equation 3): max(τ*err, (τ-1)*err)
+        # When y > q (err > 0): loss = τ * err
+        # When y ≤ q (err ≤ 0): loss = (1-τ) * |err|
+        loss_at_tau = tf.maximum(tau * err, (tau - 1) * err)
+
+        # Accumulate loss for this quantile
+        total_loss += tf.reduce_mean(loss_at_tau)
+
+    # Average over all K quantiles
+    return total_loss / K_quantiles
 
 
 def moment(x, mu, order):
@@ -172,7 +210,7 @@ def main():
 
     model = keras.models.Sequential()
     model.add(keras.layers.LSTM(H, input_shape=(1, 4)))
-    model.add(keras.layers.Dense(4, activation='relu'))
+    model.add(keras.layers.Dense(4, activation='tanh'))  # tanh as per Equation 8 in the paper
 
     print(model.summary())
 
